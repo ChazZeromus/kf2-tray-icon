@@ -10,10 +10,13 @@ ICONS = {
 SERVER_ADDRESS    = '7.psycoframe.space'
 SERVER_QUERY_PORT = 27015
 LISTEN_PORT       = 24913
+TEXT_COLOR        = (1, 1, 1)
 
 INTERVAL_SEC      = 60
 
 STATUS_STR        = 'Server: {name}\nMap: {map}\nPlayers: {players}/{max_players}'
+#ICON_STR          = '{}'
+ICON_STR          = ''
 
 
 def create_menu_item(menu, label, func):
@@ -66,8 +69,8 @@ class IconRenderer(object):
 
         if text:
             c = self.context
-            c.set_source_rgb(1, 1, 1)
-            c.set_font_size(float(self.height) * 0.8)
+            c.set_source_rgb(*TEXT_COLOR)
+            c.set_font_size(float(self.height))
             c.select_font_face('Courier New', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 
             render_text(c, text, self.width / 2, self.height / 2)
@@ -174,7 +177,7 @@ class TaskBarIcon(wx.TaskBarIcon):
             else:
                 icon = 'full'
 
-        self.render.render(icon, str(players))
+        self.render.render(icon, ICON_STR.format(players))
         self.render.update()
 
         self.SetIcon(self.render.get_icon(), status)
@@ -291,39 +294,6 @@ def parse_a2sinfo_response(data):
     data = data[unpack_size:]
 
     return server_info
-
-def udp_test():
-    UDP_IP = "7.psycoframe.space"
-
-    UDP_PORT    = 27015
-    LISTEN_PORT = 24913
-
-
-    MESSAGE = '\xff\xff\xff\xff\x54Source Engine Query\x00'
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    sock.bind(('', LISTEN_PORT))
-    sock.setblocking(0)
-
-    print "UDP target IP:", UDP_IP
-    print "UDP target port:", UDP_PORT
-    print "message:", MESSAGE
-
-    sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
-
-    while True:
-        try:
-            data, src = sock.recvfrom(8192) # buffer size is 1024 bytes
-        except socket.error:
-            time.sleep(0.001)
-        except:
-            raise
-        else:
-            print "received message:", repr(data)
-
-            info = parse_a2sinfo_response(data)
-            print info
 
 if __name__ == '__main__':
     main()

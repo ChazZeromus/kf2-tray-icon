@@ -247,9 +247,21 @@ class TaskBarIcon(wx.TaskBarIcon):
 
         sock.close()
 
+class App(wx.PySimpleApp):
+    def OnInit(self, *args, **kwargs):
+        self.name = "TrayIcon-{}".format(wx.GetUserId())
+        self.instance = wx.SingleInstanceChecker(self.name)
+
+        if self.instance.IsAnotherRunning():
+            wx.MessageBox('Another instance is running', 'ERROR')
+            return False
+
+        TaskBarIcon()
+
+        return super(App, self).OnInit(*args, **kwargs)
+
 def main():
-    app  = wx.PySimpleApp()
-    TaskBarIcon()
+    app = App()
     app.MainLoop()
 
 def parse_a2sinfo_response(data):

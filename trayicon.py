@@ -137,7 +137,7 @@ class TaskBarIcon(wx.TaskBarIcon):
 
 			if func is not None:
 				menu.Bind(wx.EVT_MENU, func, id=item.GetId())
-				
+
 			menu.AppendItem(item)
 
 			return item
@@ -425,9 +425,10 @@ class UnbufferedFile(object):
 if __name__ == '__main__':
 	image, ext = os.path.splitext(os.path.basename(sys.executable))
 
-	# Weird bug in pythonw where I think stdout.write calls block
-	# if there is no console because of wx trying to make text
-	# windows for each write.
+	# Weird bug in pythonw where I think stdout.write calls cause
+	# wx messages to not be processed if there is no console because
+	# of wx trying to make text windows for each write.
+	
 	if image.lower() == 'pythonw':
 		sys.stdout = UnbufferedFile(object())
 

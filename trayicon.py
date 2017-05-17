@@ -19,11 +19,6 @@ STATUS_STR        = 'Server: {name}\nMap: {map}\nPlayers: {players}/{max_players
 ICON_STR          = ''
 
 
-def create_menu_item(menu, label, func):
-	item = wx.MenuItem(menu, -1, label)
-	menu.Bind(wx.EVT_MENU, func, id=item.GetId())
-	menu.AppendItem(item)
-	return item
 
 class IconRenderer(object):
 	def __init__(self, **icon_dict):
@@ -137,10 +132,31 @@ class TaskBarIcon(wx.TaskBarIcon):
 		self.start_monitor()
 
 	def CreatePopupMenu(self):
+		def create_menu_item(menu, label, func=None):
+			item = wx.MenuItem(menu, -1, label)
+
+			if func is not None:
+				menu.Bind(wx.EVT_MENU, func, id=item.GetId())
+				
+			menu.AppendItem(item)
+
+			return item
+
 		menu = wx.Menu()
+
 		create_menu_item(menu, 'Refresh', self.on_refresh)
+
 		menu.AppendSeparator()
+
+		if self.server_info:
+			create_menu_item(menu, 'Players:').Enable(False)
+
+			if self.server_info['player_list']:
+				for index, player in enumerate(self.server_info['player_list'], 1):
+					create_menu_item(menu, '{}. {}'.format(index, player['name'])).Enable(False)
+
 		create_menu_item(menu, 'Exit', self.on_exit)
+
 		return menu
 
 	def on_left_down(self, event):
@@ -168,7 +184,17 @@ class TaskBarIcon(wx.TaskBarIcon):
 			icon    = 'error'
 		else:
 			players, max_players = self.server_info['players'], self.server_info['max_players']
-			status  = STATUS_STR.format(**self.server_info)
+
+			copy = dict(self.server_info)
+
+			copy['player_list'] = '\n'.join(
+				'{}. {}'.format(index, player['name']) \
+				for index, player in enumerate(self.server_info['player_list'], 1)
+			)
+
+			status  = STATUS_STR.format(**copy)
+
+			print 'status string', status
 
 			if not players:
 				icon = 'empty'
@@ -209,12 +235,19 @@ class TaskBarIcon(wx.TaskBarIcon):
 
 		print 'thread started, dest: {}, interval: {}'.format(dest, INTERVAL_SEC)
 
+		state     = 0
+		last_send = time.time()
+		max_wait  = 5
+
+		server_info = None
+
 		while not self.exit: 
 			time.sleep(0.001)
 
-			if self.last_trigger is None:
+			if self.last_trigger is None and time.time() - last_send < max_wait:
 				try:
 					data, src = sock.recvfrom(8192)
+					print 'state:', state
 					print 'received data:', repr(data)
 
 				except socket.error:
@@ -224,25 +257,56 @@ class TaskBarIcon(wx.TaskBarIcon):
 					raise
 
 				else:
-					self.last_trigger = time.time()
-
-					error       = False
-					server_info = None
+					error = False
 
 					try:
-						server_info = parse_a2sinfo_response(data)
+						if state == 0:
+							server_info = parse_a2sinfo_response(data)
+							server_info['player_list'] = []
+
+							sock.sendto(b'\xff\xff\xff\xff\x55\xff\xff\xff\xff', dest)
+							last_send = time.time()
+
+						elif state == 1:
+							_, header, challenge = struct.unpack('<LBL', data)
+
+							if header != 0x41:
+								raise Exception('Invalid a2s_player response header: 0x{:X}'.format(header))
+
+							print 'got challenge:', challenge
+
+							sock.sendto(struct.pack('<4sBL', b'\xff\xff\xff\xff', 0x55, challenge), dest)
+							last_send = time.time()
+
+						elif state == 2:
+							players = parse_a2splayer_response(data)
+
+							server_info['player_list'] = players
+
+							print 'players', players
+
 					except Exception as e:
 						error       = True
 						server_info = None
+						state       = 2
 
 						print 'Error {}'.format(e)
 						self.last_error = str(e)
+
 					finally:
-						wx.PostEvent(self, self.UpdateEvent(server_info, error))
+						if state < 2:
+							state += 1
+						else:
+							self.last_trigger = time.time()
+							wx.PostEvent(self, self.UpdateEvent(server_info, error))
+							server_info = None
+							state       = 0
 
 			elif time.time() - self.last_trigger > INTERVAL_SEC:
 				print 'sent packet'
 				self.last_trigger = None
+				last_send         = time.time()
+
 				sock.sendto(MESSAGE, dest)
 
 		sock.close()
@@ -264,13 +328,49 @@ def main():
 	app = App()
 	app.MainLoop()
 
+def seek_nullbyte_string(data):
+	p = data.find('\x00')
+
+	extracted = data[:p]
+
+	return extracted, data[p + 1:] 
+
+def parse_a2splayer_response(data):
+	_, header, players = struct.unpack('<LBB', data[:6])
+	data = data[6:]
+
+	if header != 0x44:
+		raise Exception('Invalid a2s_player list response header: 0x{:X}'.format(header))
+
+	result = []
+
+	for _ in xrange(players):
+		index, = struct.unpack('<B', data[:1])
+		data = data[1:]
+
+		name, data = seek_nullbyte_string(data)
+
+		score, duration = struct.unpack('<Lf', data[:8])
+		data = data[8:]
+
+		result.append({
+			'index': index,
+			'name': name,
+			'score': score,
+			'duration': duration
+		})
+
+	# Index seems to be zero all the time for some reason
+	'''
+	def sort_func(a, b):
+		return a['index'] - b['index']
+
+	result.sort(sort_func)
+	'''
+
+	return result
+
 def parse_a2sinfo_response(data):
-	def seek_nullbyte_string(data):
-		p = data.find('\x00')
-
-		extracted = data[:p]
-
-		return extracted, data[p + 1:] 
 
 	unpack_fields = '<4sBB'
 	unpack_size   = struct.calcsize(unpack_fields)

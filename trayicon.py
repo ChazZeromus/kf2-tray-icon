@@ -7,14 +7,16 @@ ICONS = {
 	'not_empty': 'icon_not_empty.png'
 }
 
+NUMBER_ICON = 'number_ball.png'
+
 SERVER_ADDRESS    = '7.psycoframe.space'
 SERVER_QUERY_PORT = 27015
 LISTEN_PORT       = 24913
 TEXT_COLOR        = {
-	'full'      : (1, 1, 1, 0.8),
-	'error'     : (1, 1, 1, 0.8),
-	'empty'     : (1, 1, 1, 0.8),
-	'not_empty' : (1, 0, 0, 0.8)
+	'full'      : (1, 1, 1, 1),
+	'error'     : (1, 1, 1, 1),
+	'empty'     : (1, 1, 1, 1),
+	'not_empty' : (1, 0, 0, 1)
 }
 TEXT_OPTIONS = ('Courier Regular', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 
@@ -52,18 +54,19 @@ class IconRenderer(object):
 
 		self.icon = None
 
+		self.number_icon = cairo.ImageSurface.create_from_png(NUMBER_ICON)
+
+
 	def _clear(self):
 		c = self.context
 
 		c.set_source_rgba(0, 0, 0, 0)
-		c.rectangle(0, 0, self.width, self.height)
-		c.fill()
+		c.paint()
 
 	def _clear_with_icon(self, icon):
 		c = self.context
 		c.set_source_surface(self.icon_surfaces[icon])
-		c.rectangle(0, 0, self.width, self.height)
-		c.fill()
+		c.paint()
 
 	def render(self, icon, text):
 		self._clear_with_icon(icon)
@@ -71,13 +74,23 @@ class IconRenderer(object):
 		if text:
 			c = self.context
 
+			w, h = self.number_icon.get_width(), self.number_icon.get_height()
+
+			c.translate(self.width - w, self.height - h)
+
+			c.set_source_surface(self.number_icon)
+			c.rectangle(0, 0, w, h)
+			c.fill()
+
+			c.identity_matrix()
+
 			color = TEXT_COLOR.get(icon, (1, 1, 1, 1))
 
 			c.set_source_rgba(*color)
-			c.set_font_size(float(self.height))
+			c.set_font_size(h)
 			c.select_font_face(*TEXT_OPTIONS)
 
-			render_text(c, text, self.width / 2, self.height / 2)
+			render_text(c, text, self.width - (w / 2), self.height - (h / 2))
 
 	def update(self):
 		data = str(self.surface.get_data())
@@ -88,6 +101,21 @@ class IconRenderer(object):
 			self.icon = wx.IconFromBitmap(self.bmp)
 		else:
 			self.icon.CopyFromBitmap(self.bmp)
+
+	def resize_to(self, surface):
+		c = cairo.Context(surface)
+
+		imgpat = cairo.SurfacePattern(self.surface)
+		imgpat.set_filter(cairo.FILTER_BEST)
+
+		m = cairo.Matrix()
+		m.scale(surface.width() / float(self.width), surface.height() / float(self.height))
+
+		c.set_matrix(m)
+		c.set_source(imgpat)
+
+		c.paint()
+
 
 	def get_icon(self):
 		return self.icon

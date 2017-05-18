@@ -10,13 +10,19 @@ ICONS = {
 SERVER_ADDRESS    = '7.psycoframe.space'
 SERVER_QUERY_PORT = 27015
 LISTEN_PORT       = 24913
-TEXT_COLOR        = (1, 1, 1)
+TEXT_COLOR        = {
+	'full'      : (1, 1, 1, 0.8),
+	'error'     : (1, 1, 1, 0.8),
+	'empty'     : (1, 1, 1, 0.8),
+	'not_empty' : (1, 0, 0, 0.8)
+}
+TEXT_OPTIONS = ('Courier Regular', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 
 INTERVAL_SEC      = 60
 
 STATUS_STR        = 'Server: {name}\nMap: {map}\nPlayers: {players}/{max_players}'
-#ICON_STR          = '{}'
-ICON_STR          = ''
+ICON_STR          = '{}'
+#ICON_STR          = ''
 
 
 
@@ -64,9 +70,12 @@ class IconRenderer(object):
 
 		if text:
 			c = self.context
-			c.set_source_rgb(*TEXT_COLOR)
+
+			color = TEXT_COLOR.get(icon, (1, 1, 1, 1))
+
+			c.set_source_rgba(*color)
 			c.set_font_size(float(self.height))
-			c.select_font_face('Courier New', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+			c.select_font_face(*TEXT_OPTIONS)
 
 			render_text(c, text, self.width / 2, self.height / 2)
 

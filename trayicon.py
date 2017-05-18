@@ -244,68 +244,72 @@ class TaskBarIcon(wx.TaskBarIcon):
 		while not self.exit: 
 			time.sleep(0.001)
 
-			if self.last_trigger is None and time.time() - last_send < max_wait:
-				try:
-					data, src = sock.recvfrom(8192)
-					print 'state:', state
-					print 'received data:', repr(data)
-
-				except socket.error:
-					pass
-
-				except:
-					raise
-
-				else:
-					error = False
-
+			if self.last_trigger is None:
+				if time.time() - last_send < max_wait:
 					try:
-						if state == 0:
-							server_info = parse_a2sinfo_response(data)
-							server_info['player_list'] = []
+						data, src = sock.recvfrom(8192)
+						print 'state:', state
+						print 'received data:', repr(data)
 
-							sock.sendto(b'\xff\xff\xff\xff\x55\xff\xff\xff\xff', dest)
-							last_send = time.time()
+					except socket.error:
+						pass
 
-						elif state == 1:
-							_, header, challenge = struct.unpack('<LBL', data)
+					except:
+						raise
 
-							if header != 0x41:
-								raise Exception('Invalid a2s_player response header: 0x{:X}'.format(header))
+					else:
+						error = False
 
-							print 'got challenge:', challenge
+						try:
+							if state == 0:
+								server_info = parse_a2sinfo_response(data)
+								server_info['player_list'] = []
 
-							sock.sendto(struct.pack('<4sBL', b'\xff\xff\xff\xff', 0x55, challenge), dest)
-							last_send = time.time()
+								sock.sendto(b'\xff\xff\xff\xff\x55\xff\xff\xff\xff', dest)
+								last_send = time.time()
 
-						elif state == 2:
-							players = parse_a2splayer_response(data)
+							elif state == 1:
+								_, header, challenge = struct.unpack('<LBL', data)
 
-							server_info['player_list'] = players
+								if header != 0x41:
+									raise Exception('Invalid a2s_player response header: 0x{:X}'.format(header))
 
-							print 'players', players
+								print 'got challenge:', challenge
 
-					except Exception as e:
-						error       = True
-						server_info = None
-						state       = 2
+								sock.sendto(struct.pack('<4sBL', b'\xff\xff\xff\xff', 0x55, challenge), dest)
+								last_send = time.time()
 
-						print 'Error {}'.format(e)
-						self.last_error = str(e)
+							elif state == 2:
+								players = parse_a2splayer_response(data)
 
-					finally:
-						if state < 2:
-							state += 1
-						else:
-							self.last_trigger = time.time()
-							wx.PostEvent(self, self.UpdateEvent(server_info, error))
+								server_info['player_list'] = players
+
+								print 'players', players
+
+						except Exception as e:
+							error       = True
 							server_info = None
-							state       = 0
+							state       = 2
+
+							print 'Error {}'.format(e)
+							self.last_error = str(e)
+
+						finally:
+							if state < 2:
+								state += 1
+							else:
+								self.last_trigger = time.time()
+								wx.PostEvent(self, self.UpdateEvent(server_info, error))
+								server_info = None
+								state       = 0
+				else:
+					self.last_trigger = time.time() - INTERVAL_SEC
 
 			elif time.time() - self.last_trigger > INTERVAL_SEC:
 				print 'sent packet'
 				self.last_trigger = None
 				last_send         = time.time()
+				state             = 0
 
 				sock.sendto(MESSAGE, dest)
 

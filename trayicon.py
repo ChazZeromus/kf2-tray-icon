@@ -158,9 +158,19 @@ class TaskBarIcon(wx.TaskBarIcon):
 		menu.AppendSeparator()
 
 		if self.server_info:
-			create_menu_item(menu, 'Players:').Enable(False)
+			items = [
+				'Map: ' + self.server_info['map'],
+				'Name: ' + self.server_info['name'],
+				'Players: {}/{}'.format(self.server_info['players'], self.server_info['max_players'])
+			]
+
+			for line in items:
+				create_menu_item(menu, line).Enable(False)
 
 			if self.server_info['player_list']:
+				menu.AppendSeparator()
+				create_menu_item(menu, 'Players:').Enable(False)
+
 				for index, player in enumerate(self.server_info['player_list'], 1):
 					create_menu_item(menu, '{}. {}'.format(index, player['name'])).Enable(False)
 
@@ -221,12 +231,15 @@ class TaskBarIcon(wx.TaskBarIcon):
 		self.thread.start()
 
 	def on_exit(self, event):
+		wx.CallAfter(self.Destroy)
+
+	def Destroy(self, *args):
 		self.exit = True
 
 		if self.thread.isAlive():
 			self.thread.join()
 		
-		wx.CallAfter(self.Destroy)
+		super(TaskBarIcon, self).Destroy(*args)
 
 	def thread_run(self):
 		self.last_trigger = None
@@ -323,6 +336,8 @@ class TaskBarIcon(wx.TaskBarIcon):
 				sock.sendto(MESSAGE, dest)
 
 		sock.close()
+
+		print 'Thread closed'
 
 class App(wx.PySimpleApp):
 	def OnInit(self, *args, **kwargs):

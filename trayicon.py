@@ -226,7 +226,7 @@ class TaskBarIcon(wx.TaskBarIcon):
 			icon    = 'error'
 
 		elif self.server_info is None:
-			players = 0
+			players = '?'
 			status  = 'Waiting for data...' if had_data else 'No data'
 			icon    = 'error'
 		else:
@@ -249,6 +249,9 @@ class TaskBarIcon(wx.TaskBarIcon):
 				icon = 'not_empty'
 			else:
 				icon = 'full'
+
+			if players == 0:
+				players = ''
 
 		self.render.render(icon, ICON_STR.format(players))
 		self.render.update()

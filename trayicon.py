@@ -16,7 +16,7 @@ TEXT_COLOR        = {
 	'full'      : (1, 1, 1, 1),
 	'error'     : (1, 1, 1, 1),
 	'empty'     : (1, 1, 1, 1),
-	'not_empty' : (1, 0, 0, 1)
+	'not_empty' : (1, 1, 1, 1)
 }
 TEXT_OPTIONS = ('Courier Regular', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 

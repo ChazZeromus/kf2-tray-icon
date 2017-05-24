@@ -200,7 +200,10 @@ class TaskBarIcon(wx.TaskBarIcon):
 				create_menu_item(menu, 'Players:').Enable(False)
 
 				for index, player in enumerate(self.server_info['player_list'], 1):
-					create_menu_item(menu, '{}. {}'.format(index, player['name'])).Enable(False)
+					text = '{}. {}'.format(index, player['name'])
+					text = text.decode('utf8', 'replace')
+				
+					create_menu_item(menu, text).Enable(False)
 
 		create_menu_item(menu, 'Exit', self.on_exit)
 
